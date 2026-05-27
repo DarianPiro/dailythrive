@@ -2,7 +2,8 @@ name: Daily Drive
 
 on:
   schedule:
-    - cron: "0 8 * * *"   # 05:00 UTC daily — adjust as needed
+    - cron: "0 6 * * *"    # 08:00 Berlin (summer) / 07:00 (winter) — morning
+    - cron: "0 14 * * *"   # 16:00 Berlin (summer) / 15:00 (winter) — afternoon
   workflow_dispatch: {}    # lets you run it manually from the Actions tab
 
 jobs:
