@@ -1,0 +1,25 @@
+name: Daily Drive
+
+on:
+  schedule:
+    - cron: "0 5 * * *"   # 05:00 UTC daily — adjust as needed
+  workflow_dispatch: {}    # lets you run it manually from the Actions tab
+
+jobs:
+  build-playlist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: npm install
+
+      - name: Restore secret files
+        run: |
+          printf '%s' '${{ secrets.SPOTIFY_CONFIG }}' > config.yaml
+          printf '%s' '${{ secrets.SPOTIFY_TOKEN }}'  > .spotify-token.json
+
+      - run: npm start
