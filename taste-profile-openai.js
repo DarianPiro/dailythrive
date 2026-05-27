@@ -1,31 +1,28 @@
 #!/usr/bin/env node
 // =============================================================================
-// Daily Drive — Taste Profile Generator (Google Gemini — Free)
+// Daily Drive — Taste Profile Generator (OpenAI)
 // =============================================================================
-// Analyzes your Spotify top tracks/artists and uses Google Gemini (free tier)
-// to generate genre tags for your config.yaml.
+// Analyzes your Spotify top tracks/artists and uses the OpenAI API to generate
+// genre tags for your config.yaml.
 //
-// Usage:  node taste-profile-google.js
-//         npm run taste:google
+// Usage:  node taste-profile-openai.js
+//         npm run taste:openai
 //
-// Requires: GEMINI_API_KEY in .env or environment
+// Requires: OPENAI_API_KEY in .env or environment
+//           OPENAI_MODEL (optional) to override the default model
 //
 // --------------------------------------------------------------------------
-// How to get a free Google Gemini API key:
+// How to get an OpenAI API key:
 //
-//   1. Go to https://aistudio.google.com/apikey
-//   2. Sign in with your Google account
-//   3. Click "Create API key" and select or create a Google Cloud project
-//   4. Copy the key (starts with "AIza...")
+//   1. Go to https://platform.openai.com/api-keys
+//   2. Sign in (a paid account / billing is required for API access)
+//   3. Click "Create new secret key"
+//   4. Copy the key (starts with "sk-...")
 //   5. Add it to your .env file:
-//        GEMINI_API_KEY=AIza...your_key_here
+//        OPENAI_API_KEY=sk-...your_key_here
 //
-// Free tier limits (as of March 2026):
-//   - 15 requests per minute
-//   - 1 million tokens per day
-//   - No credit card required
-//
-// This is more than enough for taste profile generation (one request per run).
+// Taste profile generation is one short request per run, so cost is negligible
+// (fractions of a cent on a mini model).
 // --------------------------------------------------------------------------
 
 const fs = require("fs");
@@ -35,10 +32,8 @@ const SpotifyWebApi = require("spotify-web-api-node");
 const TOKEN_FILE = ".spotify-token.json";
 const CONFIG_FILE = "config.yaml";
 
-// Google Gemini API — OpenAI-compatible endpoint
-const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-const GEMINI_MODEL = "gemini-2.5-flash";
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 // Load .env manually (no dotenv dependency)
 if (fs.existsSync(".env")) {
@@ -48,15 +43,15 @@ if (fs.existsSync(".env")) {
   }
 }
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_API_KEY) {
-  console.error("❌ GEMINI_API_KEY not set.");
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+if (!OPENAI_API_KEY) {
+  console.error("❌ OPENAI_API_KEY not set.");
   console.error("");
-  console.error("To get a free API key:");
-  console.error("  1. Go to https://aistudio.google.com/apikey");
-  console.error("  2. Sign in with your Google account");
-  console.error('  3. Click "Create API key"');
-  console.error("  4. Add to .env:  GEMINI_API_KEY=AIza...your_key_here");
+  console.error("To get an API key:");
+  console.error("  1. Go to https://platform.openai.com/api-keys");
+  console.error("  2. Sign in (billing must be enabled for API access)");
+  console.error('  3. Click "Create new secret key"');
+  console.error("  4. Add to .env:  OPENAI_API_KEY=sk-...your_key_here");
   process.exit(1);
 }
 
@@ -77,7 +72,7 @@ function loadToken() {
 }
 
 async function main() {
-  console.log("\n🎵 Taste Profile Generator (Google Gemini — Free)\n");
+  console.log("\n🎵 Taste Profile Generator (OpenAI)\n");
 
   const config = loadConfig();
   const token = loadToken();
@@ -177,17 +172,17 @@ Example output format:
 - alt pop
 - dance pop`;
 
-  console.log("\n🤖 Asking Google Gemini to analyze your taste...\n");
+  console.log(`\n🤖 Asking OpenAI (${OPENAI_MODEL}) to analyze your taste...\n`);
 
-  // Call Google Gemini API (OpenAI-compatible endpoint)
-  const response = await fetch(GEMINI_API_URL, {
+  // Call OpenAI Chat Completions API
+  const response = await fetch(OPENAI_API_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${GEMINI_API_KEY}`,
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: GEMINI_MODEL,
+      model: OPENAI_MODEL,
       messages: [
         {
           role: "user",
@@ -199,10 +194,14 @@ Example output format:
 
   if (!response.ok) {
     const errBody = await response.text();
-    console.error(`❌ Gemini API error: ${response.status} ${errBody}`);
-    if (response.status === 400 || response.status === 403) {
+    console.error(`❌ OpenAI API error: ${response.status} ${errBody}`);
+    if (response.status === 401) {
       console.error(
-        "\nCheck that your GEMINI_API_KEY is valid: https://aistudio.google.com/apikey"
+        "\nCheck that your OPENAI_API_KEY is valid: https://platform.openai.com/api-keys"
+      );
+    } else if (response.status === 429) {
+      console.error(
+        "\nRate limited or out of quota. Check your usage/billing: https://platform.openai.com/account/billing"
       );
     }
     process.exit(1);
