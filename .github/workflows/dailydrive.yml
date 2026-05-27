@@ -19,8 +19,11 @@ jobs:
       - run: npm install
 
       - name: Restore secret files
+        env:
+          SPOTIFY_CONFIG: ${{ secrets.SPOTIFY_CONFIG }}
+          SPOTIFY_TOKEN: ${{ secrets.SPOTIFY_TOKEN }}
         run: |
-          printf '%s' '${{ secrets.SPOTIFY_CONFIG }}' > config.yaml
-          printf '%s' '${{ secrets.SPOTIFY_TOKEN }}'  > .spotify-token.json
+          printf '%s' "$SPOTIFY_CONFIG" > config.yaml
+          printf '%s' "$SPOTIFY_TOKEN" > .spotify-token.json
 
       - run: npm start
