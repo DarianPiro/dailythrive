@@ -261,6 +261,11 @@ async function fetchMusicTracks(spotifyApi, musicConfig) {
   let allTracks = [];
 
   // --- Source 1: Pull tracks from user-specified playlists ---
+  // Per-playlist random cap:
+  //   - playlist.max_tracks       — override on this entry only
+  //   - musicConfig.playlist_track_limit — global cap applied to every playlist
+  // If both are unset, every track in the playlist is pulled (no cap).
+  const globalCap = musicConfig.playlist_track_limit;
   if (musicConfig.playlists) {
     for (const playlist of musicConfig.playlists) {
       // Skip placeholder entries from the example config
@@ -270,8 +275,11 @@ async function fetchMusicTracks(spotifyApi, musicConfig) {
 
       try {
         // Spotify returns max 100 items per request, so we paginate through
-        // larger playlists by incrementing the offset
+        // larger playlists by incrementing the offset.
+        // We accumulate this playlist's tracks separately so we can apply the
+        // per-playlist random cap before merging into the global pool.
         const accessToken = spotifyApi.getAccessToken();
+        const playlistTracks = [];
         let offset = 0;
         let hasMore = true;
 
@@ -295,7 +303,7 @@ async function fetchMusicTracks(spotifyApi, musicConfig) {
             // The /items endpoint returns the content in entry.item (not entry.track)
             const track = entry.item;
             if (track && track.uri && track.type === "track") {
-              allTracks.push({
+              playlistTracks.push({
                 uri: track.uri,
                 name: track.name,
                 artist: track.artists?.map((a) => a.name).join(", ") || "Unknown",
@@ -308,9 +316,18 @@ async function fetchMusicTracks(spotifyApi, musicConfig) {
           hasMore = offset < data.total;
         }
 
-        console.log(
-          `    Found ${allTracks.length} tracks so far`
-        );
+        // Apply per-playlist cap (per-entry override wins over the global)
+        const cap = typeof playlist.max_tracks === "number" ? playlist.max_tracks : globalCap;
+        let selected = playlistTracks;
+        if (typeof cap === "number" && cap > 0 && playlistTracks.length > cap) {
+          selected = shuffle(playlistTracks).slice(0, cap);
+          console.log(
+            `    Picked ${cap} random of ${playlistTracks.length} tracks (cap)`
+          );
+        } else {
+          console.log(`    Found ${playlistTracks.length} tracks`);
+        }
+        allTracks.push(...selected);
       } catch (err) {
         console.error(
           `    ⚠️  Failed to fetch playlist ${playlist.name}: ${err.message}`
@@ -689,6 +706,13 @@ async function fetchAllMusicTracks(spotifyApi, config) {
     const newGenreTracks = genreTracks.filter((t) => !familiarUris.has(t.uri));
     tracks = [...tracks, ...newGenreTracks.slice(0, discoveryCount)];
     console.log(`🎵 Music mix: ${familiarCount} familiar + ${newGenreTracks.slice(0, discoveryCount).length} discovery = ${tracks.length} total`);
+  }
+
+  // Final shuffle across the whole pool so familiar and discovery interleave
+  // throughout the playlist instead of clumping. Respects the global shuffle flag.
+  if (musicConfig.shuffle !== false) {
+    tracks = shuffle(tracks);
+    console.log("🔀 Final shuffle applied across familiar + discovery");
   }
 
   return tracks;

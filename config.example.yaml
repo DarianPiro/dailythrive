@@ -81,9 +81,16 @@ music:
 
   # Pull songs from existing playlists (optional)
   # Find playlist IDs the same way as your target playlist above
+  #
+  # playlist_track_limit (optional): global cap on how many tracks are pulled
+  # at random from each playlist before they enter the pool. Without it, every
+  # track in the playlist is fetched — big playlists then dominate the pool.
+  # Override per-playlist with `max_tracks: N` on a specific entry.
+  # playlist_track_limit: 30
   # playlists:
   #   - name: "Your Favorite Playlist"
   #     id: "your-playlist-id"
+  #     max_tracks: 50          # per-playlist override of playlist_track_limit
 
   # How many songs to include total
   # (The original Daily Drive had ~19 songs and ~5 podcast segments)

@@ -2,7 +2,7 @@ name: Daily Thrive
 
 on:
   schedule:
-    - cron: "0 7 * * *"    # 08:00 Berlin (summer) / 07:00 (winter)
+    - cron: "23 6 * * *"   # 08:23 Berlin (summer, CEST) / 07:23 (winter, CET) — off-the-hour to dodge the GH Actions cron queue at :00
   workflow_dispatch: {}    # lets you run it manually from the Actions tab
 
 jobs:
