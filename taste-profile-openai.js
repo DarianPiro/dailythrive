@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// Daily Drive — Taste Profile Generator (OpenAI)
+// Daily Thrive — Taste Profile Generator (OpenAI)
 // =============================================================================
 // Analyzes your Spotify top tracks/artists and uses the OpenAI API to generate
 // genre tags for your config.yaml.

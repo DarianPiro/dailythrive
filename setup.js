@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// Daily Drive — First-Time Setup
+// Daily Thrive — First-Time Setup
 // =============================================================================
 // This script authenticates your Spotify account and saves a token file.
 // You only need to run this ONCE (or again if your token expires after months).
@@ -85,7 +85,7 @@ app.get("/callback", async (req, res) => {
     fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokenData, null, 2));
 
     res.send(
-      "<h1>✅ Success!</h1><p>You can close this window. Daily Drive is ready to go!</p>"
+      "<h1>✅ Success!</h1><p>You can close this window. Daily Thrive is ready to go!</p>"
     );
     console.log("\n✅ Authentication successful!");
     console.log(`   Token saved to ${TOKEN_FILE}`);
@@ -102,9 +102,9 @@ app.get("/callback", async (req, res) => {
 
 // Bind to 127.0.0.1 explicitly (Spotify requires this, not "localhost")
 app.listen(port, "127.0.0.1", () => {
-  const authUrl = spotifyApi.createAuthorizeURL(SCOPES, "dailydrive");
+  const authUrl = spotifyApi.createAuthorizeURL(SCOPES, "dailythrive");
 
-  console.log("\n🎵 Daily Drive — Setup\n");
+  console.log("\n🎵 Daily Thrive — Setup\n");
   console.log("Open this URL in your browser to authorize:\n");
   console.log(`  ${authUrl}\n`);
 

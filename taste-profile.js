@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// Daily Drive — Taste Profile Generator
+// Daily Thrive — Taste Profile Generator
 // =============================================================================
 // Analyzes your Spotify top tracks/artists and uses an LLM (via Demeterics)
 // to generate genre tags for your config.yaml.

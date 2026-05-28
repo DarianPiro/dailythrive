@@ -1,5 +1,5 @@
 {
-  "name": "dailydrive",
+  "name": "dailythrive",
   "version": "1.0.0",
   "description": "Recreate Spotify's Daily Drive: auto-mix podcasts and music into one playlist",
   "main": "index.js",

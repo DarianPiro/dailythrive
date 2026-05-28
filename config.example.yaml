@@ -1,5 +1,5 @@
 # =============================================================================
-# Daily Drive Configuration
+# Daily Thrive Configuration
 # =============================================================================
 # Copy this file to config.yaml and fill in your details:
 #   cp config.example.yaml config.yaml
@@ -17,7 +17,7 @@ spotify:
   redirect_uri: "http://127.0.0.1:8888/callback"
 
 # --- Your Playlist ---
-# The playlist where Daily Drive content will be placed.
+# The playlist where Daily Thrive content will be placed.
 # Create an empty playlist in Spotify, then right-click > Share > Copy link.
 # The ID is the part after "playlist/" in the URL.
 # Example: https://open.spotify.com/playlist/37i9dQZF1DX... → ID is "37i9dQZF1DX..."
@@ -28,17 +28,18 @@ playlist_id: "your-playlist-id-here"
 # To find a show ID: open it in Spotify > Share > Copy link
 # Example: https://open.spotify.com/show/6z4NLXyHPga... → ID is "6z4NLXyHPga..."
 #
-# Use position: first to always place a podcast at the start of the playlist
-# (great for news briefings like NPR News Now)
+# Per-podcast flags:
+#   episodes:     number of episodes to pull per run (default: 1)
+#   position:     "first" to pin this podcast to the very top of the playlist
+#   allow_older:  true to disable the 2-week freshness filter for this show
+#                 (default: false — episodes older than 14 days are skipped).
+#                 Use for evergreen / interview / film-analysis shows where
+#                 catching up on older episodes is fine.
+#   fixed:        true to keep this podcast at its config-file slot in the
+#                 rotation. All non-fixed podcasts get shuffled into the
+#                 remaining slots each run, so the playlist order varies.
+#                 (position: first is always treated as fixed.)
 podcasts:
-  # Optional: Daily welcome greeting for your playlist.
-  # A short "Welcome to Your Daily Drive, it's Monday March 24th..." intro.
-  # You can create your own welcome show (see unscarcity-podcast repo), or skip this.
-  # - name: "Daily Drive Welcome"
-  #   id: "your-welcome-show-id"
-  #   episodes: 1
-  #   position: first
-
   - name: "NPR News Now"
     id: "6BRSvIBNQnB68GuoXJRCnQ"
     episodes: 1
@@ -51,6 +52,12 @@ podcasts:
   - name: "The Daily"
     id: "3IM0lmZxpFAY7CwMuv9H4g"
     episodes: 1
+
+  # Example: evergreen show — allow episodes older than 2 weeks
+  # - name: "Die Filmanalyse"
+  #   id: "2yFO6qxFx7L2oqPdWv9DtM"
+  #   episodes: 1
+  #   allow_older: true
 
 # --- Music Sources ---
 # Where to pull songs from. You can mix and match multiple sources.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// Daily Drive — Taste Profile Generator (Google Gemini — Free)
+// Daily Thrive — Taste Profile Generator (Google Gemini — Free)
 // =============================================================================
 // Analyzes your Spotify top tracks/artists and uses Google Gemini (free tier)
 // to generate genre tags for your config.yaml.

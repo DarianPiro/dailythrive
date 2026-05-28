@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // =============================================================================
-// Daily Drive — Main Script
+// Daily Thrive — Main Script
 // =============================================================================
-// Builds your custom Daily Drive playlist by mixing podcasts and music.
+// Builds your custom Daily Thrive playlist by mixing podcasts and music.
 // This recreates Spotify's discontinued "Daily Drive" feature.
 //
 // Usage:  npm start                  (full refresh — new music + podcasts)
@@ -22,6 +22,10 @@ const SpotifyWebApi = require("spotify-web-api-node"); // Wraps the Spotify Web 
 const TOKEN_FILE = ".spotify-token.json";  // Stores your Spotify OAuth tokens (created by setup.js)
 const CONFIG_FILE = "config.yaml";         // Your configuration (podcasts, music, schedule, etc.)
 const STATE_FILE = "state.json";           // Caches last run's episode URIs to detect changes
+const HISTORY_FILE = "episode-history.json"; // Tracks every episode URI ever placed so we never repeat
+const HISTORY_LIMIT = 1000;                  // Cap on stored URIs (older ones drop off the front)
+const EPISODE_LOOKBACK = 5;                  // Per-show candidate pool when filtering history
+const DEFAULT_MAX_AGE_DAYS = 14;             // Default cutoff: skip episodes older than 2 weeks (override per-show with allow_older: true)
 
 // Check command-line flags
 const DRY_RUN = process.argv.includes("--dry-run");       // Shows what would happen without changing the playlist
@@ -83,6 +87,59 @@ function saveState(state) {
 }
 
 /**
+ * Loads the episode-history file: a rolling list of episode URIs we've already
+ * placed in the playlist on previous runs. Used to skip already-played episodes
+ * so the same episode doesn't appear on multiple days.
+ */
+function loadHistory() {
+  if (!fs.existsSync(HISTORY_FILE)) return [];
+  try {
+    const data = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Persists episode history to disk, trimmed to the most recent HISTORY_LIMIT entries.
+ */
+function saveHistory(uris) {
+  const trimmed = uris.slice(-HISTORY_LIMIT);
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(trimmed, null, 2));
+}
+
+/**
+ * Reorders the podcast list so that podcasts with `fixed: true` (or `position: first`,
+ * which is always pinned anyway) keep their slot from the config file, while every
+ * other podcast gets shuffled into the remaining slots. This keeps anchor shows in a
+ * predictable spot in the rotation while randomizing everything else.
+ *
+ * Example:
+ *   config: [A(fixed), B, C, D(fixed), E, F]
+ *   shuffle of [B, C, E, F] → [F, B, E, C]
+ *   result:  [A, F, B, D, E, C]
+ */
+function arrangePodcasts(podcasts) {
+  const result = new Array(podcasts.length);
+  const shuffleableSlots = [];
+  const shuffleable = [];
+  for (let i = 0; i < podcasts.length; i++) {
+    if (podcasts[i].fixed === true || podcasts[i].position === "first") {
+      result[i] = podcasts[i];
+    } else {
+      shuffleable.push(podcasts[i]);
+      shuffleableSlots.push(i);
+    }
+  }
+  const shuffled = shuffle(shuffleable);
+  for (let k = 0; k < shuffleableSlots.length; k++) {
+    result[shuffleableSlots[k]] = shuffled[k];
+  }
+  return result;
+}
+
+/**
  * Fisher-Yates shuffle — randomizes an array in-place.
  * Used to shuffle music tracks so the playlist feels fresh each time.
  */
@@ -133,22 +190,44 @@ async function refreshTokenIfNeeded(spotifyApi, token) {
  * quickly on Spotify. If you see "[unavailable]" in your playlist, run the
  * script again to fetch the latest episode.
  */
-async function fetchPodcastEpisodes(spotifyApi, podcasts) {
+async function fetchPodcastEpisodes(spotifyApi, podcasts, history) {
+  const seenUris = new Set(history);
   const episodes = [];
+  const now = Date.now();
+  const maxAgeMs = DEFAULT_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 
   for (const podcast of podcasts) {
-    // How many recent episodes to grab (default: 1, configurable per podcast)
-    const count = podcast.episodes || 1;
-    console.log(`🎙️  Fetching ${count} episode(s) from: ${podcast.name}`);
+    // How many fresh (unseen) episodes we want from this show
+    const need = podcast.episodes || 1;
+    // Fetch a broader candidate pool so we have alternatives when filtering against history
+    const poolLimit = Math.max(need * 3, EPISODE_LOOKBACK);
+    // Per-show opt-out of the 2-week freshness cutoff (e.g. for evergreen / interview podcasts)
+    const allowOlder = podcast.allow_older === true;
+    console.log(`🎙️  Fetching up to ${poolLimit} candidate(s) from: ${podcast.name}${allowOlder ? "  [allow_older]" : ""}`);
 
     try {
-      // Ask Spotify for the most recent episodes of this show
       const data = await spotifyApi.getShowEpisodes(podcast.id, {
-        limit: count,
+        limit: poolLimit,
         market: "US", // Required for episode availability
       });
 
+      let picked = 0;
       for (const episode of data.body.items) {
+        if (picked >= need) break;
+        if (seenUris.has(episode.uri)) {
+          console.log(`    ⏭️  Already played: ${episode.name}`);
+          continue;
+        }
+        if (!allowOlder && episode.release_date) {
+          // Spotify returns release_date as YYYY-MM-DD (or YYYY-MM / YYYY for some shows).
+          // Treat it as midnight UTC; episodes older than DEFAULT_MAX_AGE_DAYS are skipped.
+          const released = Date.parse(episode.release_date);
+          if (Number.isFinite(released) && now - released > maxAgeMs) {
+            const ageDays = Math.floor((now - released) / (24 * 60 * 60 * 1000));
+            console.log(`    🕰️  Too old (${ageDays}d): ${episode.name}`);
+            continue;
+          }
+        }
         episodes.push({
           uri: episode.uri,      // Spotify URI like "spotify:episode:abc123"
           name: episode.name,
@@ -157,6 +236,10 @@ async function fetchPodcastEpisodes(spotifyApi, podcasts) {
           position: podcast.position || null, // "first" = pinned to top of playlist
         });
         console.log(`    📌 ${episode.name}`);
+        picked++;
+      }
+      if (picked === 0) {
+        console.log(`    🚫 No fresh, unseen episodes for ${podcast.name} today`);
       }
     } catch (err) {
       // Don't crash if one podcast fails — just warn and continue with the rest
@@ -446,7 +529,7 @@ async function updatePlaylist(spotifyApi, playlistId, items) {
 
 async function main() {
   const mode = PODCAST_ONLY ? "podcast-only" : "full";
-  console.log(`\n🚗 Daily Drive — ${PODCAST_ONLY ? "Hourly podcast refresh" : "Full playlist rebuild"}...\n`);
+  console.log(`\n🌱 Daily Thrive — ${PODCAST_ONLY ? "Hourly podcast refresh" : "Full playlist rebuild"}...\n`);
 
   // Step 1: Load configuration and authentication token
   const config = loadConfig();
@@ -472,8 +555,18 @@ async function main() {
     process.exit(1);
   }
 
-  // Step 5: Fetch the latest podcast episodes
-  const episodes = await fetchPodcastEpisodes(spotifyApi, config.podcasts || []);
+  // Step 5: Arrange podcasts (anchors stay put, the rest get shuffled), then fetch
+  //         the latest episodes for each, filtering out any already in history.
+  const history = loadHistory();
+  console.log(`📜 Loaded ${history.length} previously-played episode URIs from history`);
+  const arrangedPodcasts = arrangePodcasts(config.podcasts || []);
+  const fixedCount = arrangedPodcasts.filter(
+    (p) => p.fixed === true || p.position === "first"
+  ).length;
+  console.log(
+    `🔀 Podcast order: ${fixedCount} fixed + ${arrangedPodcasts.length - fixedCount} shuffled`
+  );
+  const episodes = await fetchPodcastEpisodes(spotifyApi, arrangedPodcasts, history);
 
   // Step 6: Check if episodes have changed since last run
   // This prevents unnecessary playlist updates that would reset your listening position
@@ -554,6 +647,16 @@ async function main() {
 
     saveState(newState);
     console.log("💾 State saved to state.json");
+
+    // Append the episode URIs we just placed to the rolling history so future
+    // runs won't re-pick the same episodes
+    if (episodes.length > 0) {
+      const updatedHistory = [...history, ...episodes.map((e) => e.uri)];
+      saveHistory(updatedHistory);
+      console.log(
+        `💾 Episode history updated (${Math.min(updatedHistory.length, HISTORY_LIMIT)} entries, cap ${HISTORY_LIMIT})`
+      );
+    }
   }
 }
 

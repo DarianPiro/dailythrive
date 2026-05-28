@@ -1,308 +1,209 @@
 # Daily Thrive
 
-**Bring back Spotify's Daily Drive — your personal mix of podcasts and music, updated automatically.**
+**Bring back Spotify's Daily Drive — your personal mix of podcasts and music, refreshed automatically by GitHub Actions.**
 
-Spotify [killed Daily Drive](https://community.spotify.com/t5/Music-Discussion/Is-Daily-Drive-gone/td-p/7377710) on March 17, 2026. This project brings it back. It runs on any Linux machine and automatically refreshes a Spotify playlist with your podcasts interleaved with music.
+Spotify [killed Daily Drive](https://community.spotify.com/t5/Music-Discussion/Is-Daily-Drive-gone/td-p/7377710) on March 17, 2026. This project brings it back. Unlike the original (which required a Linux box, cron, and SSH), **Daily Thrive runs entirely on GitHub Actions** — no server, no laptop kept on. The workflow ships your Spotify playlist on a schedule for free.
 
-[**Listen to a live example**](https://open.spotify.com/playlist/34nCFkIuIkiFF4W5dJKiTi) — updated twice daily with NPR News, The Journal, Freakonomics, and a mix of top tracks and genre discovery.
-
-> **You need Spotify Premium.** Since Feb 2026, Spotify requires Premium for Developer apps. It's free to use the API — you just need a Premium account.
+> **You need Spotify Premium.** Since Feb 2026, Spotify requires Premium to register a Developer app. Using the API is free; you just need the Premium account.
 
 ---
 
-## Setup Guide
+## How it works
 
-### Step 1: Create a Spotify Developer App
-
-This tells Spotify your script is allowed to manage your playlists. It's free and takes 2 minutes.
-
-1. Go to **[developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)** and log in with your Spotify account
-2. Click **"Create App"**
-3. Fill in the form:
-   - **App name:** `Daily Drive` (or anything)
-   - **App description:** `Personal playlist tool` (or anything)
-   - **Redirect URI:** type in exactly: `http://127.0.0.1:8888/callback` then click **Add**
-   - Check both **Web API** and **Web Playback SDK**
-4. Click **"Save"**
-
-You're now on your app's dashboard page.
-
-#### Finding your Client ID and Client Secret
-
-5. On your app's page, click **"Settings"** (top right)
-6. You'll see your **Client ID** right there — copy it somewhere
-7. Click **"View client secret"** to reveal your **Client Secret** — copy that too
-
-#### Adding yourself as an authorized user
-
-8. Still in Settings, scroll down to **"User Management"**
-9. Type in the **email address** tied to your Spotify account and click **Add**
-
-> **Why?** Since Feb 2026, even the app owner must be explicitly added. Without this, you'll get a 403 error when the script tries to update your playlist.
-
----
-
-### Step 2: Create an empty playlist in Spotify
-
-1. Open Spotify (the app or [open.spotify.com](https://open.spotify.com))
-2. Create a new playlist — name it whatever you like (e.g., "My Daily Drive")
-3. Right-click the playlist → **Share** → **Copy link to playlist**
-4. You'll get a link like: `https://open.spotify.com/playlist/34nCFkIuIkiFF4W5dJKiTi`
-5. The part after `/playlist/` is your **Playlist ID** — copy it
-
----
-
-### Step 3: Find your podcast IDs
-
-For each podcast you want to include:
-
-1. Open the podcast/show in Spotify
-2. Click **⋯** → **Share** → **Copy link to show**
-3. You'll get a link like: `https://open.spotify.com/show/6z4NLXyHPga1UmSJsPK7G1`
-4. The part after `/show/` is the **Show ID**
-
-Some popular ones to get you started:
-
-| Podcast | Show ID |
-|---------|---------|
-| NPR News Now | `6BRSvIBNQnB68GuoXJRCnQ` |
-| The Daily (NYT) | `3IM0lmZxpFAY7CwMuv9H4g` |
-| Freakonomics Radio | `6z4NLXyHPga1UmSJsPK7G1` |
-| Up First (NPR) | `2mTUnDkuKUkhiueKcVWoP0` |
-| The Journal (WSJ) | `0KxdEdeY2Wb3zr28dMlQva` |
-
----
-
-### Step 4: Install and configure
-
-```bash
-# Get the code
-git clone https://github.com/patdeg/dailydrive.git
-cd dailydrive
-
-# Run the installer (installs Node.js if needed + dependencies)
-chmod +x install.sh
-./install.sh
+```
+GitHub Actions cron  →  npm start  →  Spotify Web API  →  your playlist
+        ▲                                                       │
+        └──────────────  commits episode-history.json  ◄────────┘
 ```
 
-Now edit your config file:
-
-```bash
-nano config.yaml
-```
-
-Paste in your **Client ID**, **Client Secret**, **Playlist ID**, and your **podcast Show IDs** from the steps above. The file has comments explaining each field. Save and exit (`Ctrl+X`, then `Y`, then `Enter`).
+Every run:
+1. Pulls fresh episodes from each podcast in `config.yaml` — **skipping anything older than 2 weeks** (overridable per show), and skipping episodes you've already played (tracked in `episode-history.json`).
+2. Pools your top tracks, source playlists, and genre discovery; shuffles and trims to `total_songs`.
+3. Interleaves podcasts and music using your `mix_pattern`.
+4. Replaces your target playlist via the Spotify API.
+5. Commits the updated `episode-history.json` back to the repo so the next run knows what's already been played.
 
 ---
 
-### Step 5: Log in to Spotify (one time only)
+## Setup
+
+### 1. Fork or clone this repo
+
+Push it to a private GitHub repo of your own — the workflow runs from there.
+
+### 2. Create a Spotify Developer App
+
+1. Go to **[developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)** → **Create App**.
+2. **Redirect URI:** `http://127.0.0.1:8888/callback` (exactly — `127.0.0.1`, **not** `localhost`, which Spotify removed in Nov 2025).
+3. Enable both **Web API** and **Web Playback SDK**.
+4. In **Settings → User Management**, add the email tied to your Spotify account (required since Feb 2026, even for the app owner — without this, playlist writes return `403`).
+5. Copy your **Client ID** and **Client Secret**.
+
+### 3. Create an empty target playlist
+
+In Spotify, create the playlist that Daily Thrive will overwrite each run. Right-click → **Share → Copy link to playlist**, and grab the ID after `/playlist/`.
+
+### 4. Configure locally
 
 ```bash
+cp config.example.yaml config.yaml
+```
+
+Fill in `client_id`, `client_secret`, `playlist_id`, and your podcasts/music settings. The file has inline comments for every field.
+
+### 5. Authenticate once (locally)
+
+```bash
+npm install
 npm run setup
 ```
 
-This prints a URL. Open it in your browser, log into Spotify, and click **Agree**. The script saves your login token locally — you only do this once.
+A browser opens; log in and click **Agree**. This writes `.spotify-token.json` with a long-lived refresh token. Tokens persist for months — you only do this once.
 
-> **On a headless server (SSH, no monitor)?** Connect with port forwarding first:
-> ```bash
-> ssh -L 8888:127.0.0.1:8888 user@your-server
-> ```
-> Then run `npm run setup` on the server, and open the URL in your **local** browser.
+> **No browser on the machine running the auth?** Use SSH port forwarding: `ssh -L 8888:127.0.0.1:8888 user@server` and open the URL in your local browser.
 
----
-
-### Step 6: Build your playlist!
+### 6. (Optional) Dry-run to confirm it works
 
 ```bash
-npm start
+npm test
 ```
 
-Open Spotify — your playlist is now filled with a fresh mix of podcasts and music!
+This prints the mix it would build without touching the playlist.
+
+### 7. Add GitHub secrets
+
+In your GitHub repo: **Settings → Secrets and variables → Actions**, add:
+
+| Secret | Contents |
+|---|---|
+| `SPOTIFY_CONFIG` | Paste the entire contents of `config.yaml` |
+| `SPOTIFY_TOKEN` | Paste the entire contents of `.spotify-token.json` |
+
+Both files are gitignored — they live only in secrets. The workflow recreates them on each run.
+
+### 8. Push and let the workflow run
+
+The workflow at [`.github/workflows/dailydrive.yml`](.github/workflows/dailydrive.yml) is already wired up. By default it runs daily at **06:00 UTC** (08:00 Berlin in summer). You can:
+
+- Adjust the `cron:` line to taste (GitHub cron is UTC, no DST).
+- Trigger it manually from the **Actions** tab → **Daily Thrive** → **Run workflow**.
 
 ---
 
-## Personalizing Your Music Mix
+## What's in `config.yaml`
 
-This is where you make it yours. Edit `config.yaml` to control what music goes in.
-
-### Your Top Tracks (on by default)
-
-Pulls from your most-played songs — the best signal for "songs I actually like."
-
-```yaml
-music:
-  top_tracks:
-    enabled: true
-    time_range: "short_term"   # "short_term" (~4 weeks), "medium_term" (~6 months), "long_term" (all time)
-    count: 30
-```
-
-### Add genre discovery (new music you'll like)
-
-Add genres to discover fresh tracks that match your taste:
-
-```yaml
-music:
-  genres:
-    - pop
-    - indie pop
-    - dance pop
-    - singer-songwriter
-```
-
-**Don't know your genres?** Run `npm run taste:google` to auto-detect them using AI for free (requires a [Google Gemini](https://aistudio.google.com/apikey) API key in `.env` — see [Taste Profile](#taste-profile) below). Or use `npm run taste` for the [Demeterics](https://demeterics.ai) version.
-
-When both top tracks and genres are enabled, songs are split **50/50** — half familiar favorites, half new discoveries.
-
-### Pull from existing playlists
-
-```yaml
-music:
-  playlists:
-    - name: "My Chill Playlist"
-      id: "your-playlist-id-here"
-```
-
-### Control the mix pattern
-
-The `mix_pattern` controls how podcasts (P) and music (M) alternate:
-
-| Pattern | What it sounds like |
-|---------|-------------------|
-| `PMMMM` | 1 podcast, 4 songs, repeat (default) |
-| `PMMM` | 1 podcast, 3 songs, repeat |
-| `PM` | alternating podcast and song |
-| `MMMPMMMM` | music-heavy: 3 songs, 1 podcast, 4 songs |
-
-### Pin a podcast to always play first
-
-Great for news briefings:
+### Podcasts
 
 ```yaml
 podcasts:
   - name: "NPR News Now"
     id: "6BRSvIBNQnB68GuoXJRCnQ"
     episodes: 1
-    position: first    # Always plays first, before the pattern
+    position: first         # always at the top, before the mix pattern
+
+  - name: "Die Filmanalyse"
+    id: "2yFO6qxFx7L2oqPdWv9DtM"
+    episodes: 1
+    allow_older: true       # opt out of the 2-week freshness filter
 ```
+
+Per-show flags:
+
+| Flag | Meaning |
+|---|---|
+| `episodes` | how many episodes to pull (default `1`) |
+| `position: first` | pin this show to the top |
+| `allow_older: true` | disable the 14-day cutoff for evergreen shows (interviews, film analysis, etc.) |
+
+Episodes already placed on a previous run are tracked in `episode-history.json` (capped at 1000 most-recent URIs) and skipped automatically.
+
+### Music sources
+
+```yaml
+music:
+  top_tracks:
+    enabled: true
+    time_range: "short_term"   # short_term (~4w), medium_term (~6mo), long_term (all-time)
+    count: 50                  # pool size before shuffle
+
+  genres:
+    - hyperpop
+    - synth pop
+    - electronic
+
+  playlists:
+    - name: "2026 Megamix"
+      id: "3VQKTI0HQbMOlr8drD7W7h"
+
+  total_songs: 50
+  shuffle: true
+```
+
+When genres are set, the music pool is split 50/50 between **familiar** (top tracks + source playlists) and **discovery** (genre search).
+
+### Mix pattern
+
+| Pattern | Behavior |
+|---|---|
+| `PMMMM` | 1 podcast, 4 songs, repeat |
+| `MMMP` | 3 songs, 1 podcast, repeat |
+| `PM` | strict alternation |
+
+Once one side runs out, the rest of the other side is appended in a block.
 
 ---
 
-## Run It Automatically
+## Auto-generate your genres
 
-Set up a cron job so your playlist refreshes on its own:
+If you don't want to think about genre tags, an LLM can read your listening history and write the `genres:` block for you.
 
 ```bash
-crontab -e
+# OpenAI (default model: gpt-4o-mini)
+echo "OPENAI_API_KEY=sk-..." > .env
+npm run taste:openai
+
+# Google Gemini (free tier)
+echo "GEMINI_API_KEY=AIza..." > .env
+npm run taste:google
 ```
 
-Add this line (refreshes at 4 AM and 4 PM daily):
-
-```
-0 4,16 * * * cd /home/$USER/dailydrive && /usr/bin/node index.js >> /tmp/dailydrive.log 2>&1
-```
-
-That's it — your Daily Drive is back on autopilot.
+Both write the result directly into `config.yaml`. After running, update the `SPOTIFY_CONFIG` secret so the workflow sees it.
 
 ---
 
-## Commands Reference
+## Commands
 
 | Command | What it does |
-|---------|-------------|
-| `npm run setup` | Log in to Spotify (one time, or if token expires) |
-| `npm start` | Build/refresh the playlist now |
-| `npm test` | Dry run — shows what would happen without changing anything |
-| `npm run taste` | Auto-detect your music genres using AI (Demeterics) |
-| `npm run taste:google` | Auto-detect your music genres using AI (Google Gemini — free) |
+|---|---|
+| `npm run setup` | One-time Spotify login (writes `.spotify-token.json`) |
+| `npm start` | Build/refresh the playlist (used by the workflow) |
+| `npm test` | Dry run — prints the mix it would build |
+| `npm run taste:openai` | Auto-detect genres via OpenAI |
+| `npm run taste:google` | Auto-detect genres via Google Gemini (free tier) |
 
 ---
 
 ## Troubleshooting
 
 | Problem | Fix |
-|---------|-----|
-| `Not authenticated!` | Run `npm run setup` |
-| `config.yaml not found!` | Run `cp config.example.yaml config.yaml` and edit it |
-| `Token expired` | Run `npm run setup` again |
-| `403 Forbidden` | Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → your app → Settings → User Management → add your Spotify email. Then re-run `npm run setup` |
-| `404 Not Found` | Double-check your podcast/playlist IDs in config.yaml |
-| Playlist is empty after running | Run `npm test` to see if podcasts/playlists are returning results |
+|---|---|
+| Workflow step `Restore secret files` fails with `command not found` | Almost always a shell-quoting collision in the secret. The repo workflow already passes secrets via `env:` to dodge this; if you changed it, revert to the `env:`/`"$VAR"` pattern. |
+| `403 Forbidden` on playlist write | In the Spotify Dashboard → your app → Settings → User Management, add your Spotify email. |
+| `404 Not Found` | Wrong podcast/playlist ID in `config.yaml`. |
+| Token expired | Re-run `npm run setup` locally, then update the `SPOTIFY_TOKEN` secret. |
+| Playlist empty | `npm test` to inspect; usually a config typo or a market-restricted show. |
+| Workflow can't push `episode-history.json` | Check that the job has `permissions: contents: write`. |
 
 ---
 
-## Taste Profile
+## Background
 
-Auto-detect your genre tags using AI. The script analyzes your Spotify listening history and suggests genre tags for your config.
+Spotify launched **Your Daily Drive** on June 12, 2019 — a rotating playlist mixing music with news and podcast clips, ~25 items total (19 songs + 5–6 podcast segments), updated multiple times daily. The feature was fully removed on March 17, 2026.
 
-### Option A: Google Gemini (free — recommended)
-
-Uses the Google Gemini API free tier. No credit card required.
-
-1. Go to **[aistudio.google.com/apikey](https://aistudio.google.com/apikey)**
-2. Sign in with your Google account
-3. Click **"Create API key"** and select or create a Google Cloud project
-4. Copy the key (starts with `AIza...`)
-5. Create a `.env` file in the dailydrive folder (or add to your existing one):
-   ```
-   GEMINI_API_KEY=AIza...your_key_here
-   ```
-6. Run:
-   ```bash
-   npm run taste:google
-   ```
-
-Free tier limits: 15 requests/minute, 1M tokens/day — more than enough for this.
-
-### Option B: Demeterics
-
-Uses the [Demeterics](https://demeterics.ai) API — an LLM observability platform that acts as a proxy to 50+ providers (OpenAI, Anthropic, Google, Groq, etc.). Beyond routing, Demeterics tracks cost, latency, and errors across every call with 50+ fields per request — useful if you're building AI into multiple projects and want one dashboard to monitor spending and performance. Integration is just a URL change (OpenAI-compatible), and prompt-level tags let you slice data by app, workflow, or customer. See [demeterics.ai/observability](https://demeterics.ai/observability) for details.
-
-1. Get an API key at [demeterics.ai](https://demeterics.ai)
-2. Add to `.env`:
-   ```
-   DEMETERICS_API_KEY=dmt_your_key_here
-   ```
-3. Run:
-   ```bash
-   npm run taste
-   ```
-
-| Mode | How | Fee |
-|------|-----|-----|
-| **BYOK** (default) | Store your vendor keys (OpenAI, Google, etc.) in [Settings > Provider Keys](https://demeterics.ai). Or use dual-key format: `dmt_YOUR_KEY;sk-YOUR_VENDOR_KEY` | 10% |
-| **Managed Key** | Demeterics provides vendor keys. Email sales@demeterics.com with subject "Feature Access Request" | 15% |
+Daily Thrive recreates the format — but *you* control the inputs, the cadence, and the mix.
 
 ---
-
-## How It Works
-
-1. **Auth:** OAuth 2.0 — `setup.js` runs a local server, you log in via browser, tokens are saved and auto-refresh
-2. **Podcasts:** Fetches latest episodes from each show via Spotify API
-3. **Music:** Pulls from your top tracks, genre search, and/or playlists — pools, shuffles, and trims
-4. **Mix:** Pins episodes marked `position: first`, then interleaves the rest using your mix pattern
-5. **Update:** Replaces the playlist contents via the Spotify API
-
-The script caches state in `state.json` — if nothing changed since last run, it skips the update. Delete `state.json` to force a refresh.
-
----
-
-## Background: What Was Daily Drive?
-
-Spotify launched **Your Daily Drive** on June 12, 2019 — a personalized playlist mixing music with news and podcast clips. It typically had ~25 items (19 songs + 5-6 podcast segments), updated multiple times daily. The feature was fully removed on March 17, 2026.
-
-This project brings it back — but better, because *you* control exactly what goes in it.
-
----
-
-## Contributing
-
-PRs welcome — especially for:
-- Additional music sources (liked songs, recently played, etc.)
-- Multiple playlist support
-- Web dashboard
-- Docker support
 
 ## License
 
-MIT — do whatever you want with it.
+MIT. Originally forked from [patdeg/dailydrive](https://github.com/patdeg/dailydrive); reworked to run on GitHub Actions instead of a Linux VPS.

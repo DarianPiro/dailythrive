@@ -1,14 +1,15 @@
-name: Daily Drive
+name: Daily Thrive
 
 on:
   schedule:
-    - cron: "0 6 * * *"    # 08:00 Berlin (summer) / 07:00 (winter) — morning
-    - cron: "0 14 * * *"   # 16:00 Berlin (summer) / 15:00 (winter) — afternoon
+    - cron: "0 7 * * *"    # 08:00 Berlin (summer) / 07:00 (winter)
   workflow_dispatch: {}    # lets you run it manually from the Actions tab
 
 jobs:
   build-playlist:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to push the updated episode-history.json back
     steps:
       - uses: actions/checkout@v4
 
@@ -27,3 +28,15 @@ jobs:
           printf '%s' "$SPOTIFY_TOKEN" > .spotify-token.json
 
       - run: npm start
+
+      - name: Commit updated episode history
+        run: |
+          if [ -n "$(git status --porcelain episode-history.json)" ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add episode-history.json
+            git commit -m "chore: update episode history [skip ci]"
+            git push
+          else
+            echo "No changes to episode-history.json"
+          fi
