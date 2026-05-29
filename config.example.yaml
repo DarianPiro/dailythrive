@@ -39,6 +39,12 @@ playlist_id: "your-playlist-id-here"
 #                 rotation. All non-fixed podcasts get shuffled into the
 #                 remaining slots each run, so the playlist order varies.
 #                 (position: first is always treated as fixed.)
+#   ephemeral:    true for rolling-URI shows like "tagesschau in 100 Sekunden"
+#                 or "NPR News Now" whose episode URI changes multiple times
+#                 per day. Ephemeral shows bypass the history filter (so the
+#                 *current* URI is always fetched) and are NOT added to history
+#                 (so URI churn doesn't pollute the cap). Pair with the hourly
+#                 podcast-only refresh in the workflow to keep them fresh.
 podcasts:
   - name: "NPR News Now"
     id: "6BRSvIBNQnB68GuoXJRCnQ"

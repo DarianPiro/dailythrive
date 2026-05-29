@@ -1,9 +1,17 @@
 name: Daily Thrive
 
+# One hourly cron drives both modes. The script does a full refresh at the
+# scheduled daily hour (UTC) and a podcast-only refresh every other hour, so
+# rolling-URI shows like tagesschau stay current without re-shuffling music.
 on:
   schedule:
-    - cron: "23 6 * * *"   # 08:23 Berlin (summer, CEST) / 07:23 (winter, CET) — off-the-hour to dodge the GH Actions cron queue at :00
-  workflow_dispatch: {}    # lets you run it manually from the Actions tab
+    - cron: "23 * * * *"   # every hour at :23 (off-the-hour to dodge GH Actions cron queue)
+  workflow_dispatch: {}     # manual trigger from the Actions tab
+
+# UTC hour at which to do the full rebuild. 06 UTC = 08:23 Berlin in summer (CEST),
+# 07:23 in winter (CET). Every other hourly run does podcast-only.
+env:
+  FULL_REFRESH_HOUR_UTC: "06"
 
 jobs:
   build-playlist:
@@ -19,6 +27,17 @@ jobs:
 
       - run: npm install
 
+      # state.json holds the music_tracks selected on the daily full refresh.
+      # Hourly podcast-only runs reuse it so the music doesn't change between
+      # daily refreshes. Cache restores the most recent state.json before the
+      # run and saves the updated one after (unique key per run, prefix fallback).
+      - name: Restore music state cache
+        uses: actions/cache@v4
+        with:
+          path: state.json
+          key: dailythrive-state-${{ github.run_id }}
+          restore-keys: dailythrive-state-
+
       - name: Restore secret files
         env:
           SPOTIFY_CONFIG: ${{ secrets.SPOTIFY_CONFIG }}
@@ -27,9 +46,18 @@ jobs:
           printf '%s' "$SPOTIFY_CONFIG" > config.yaml
           printf '%s' "$SPOTIFY_TOKEN" > .spotify-token.json
 
-      - run: npm start
+      - name: Build playlist (full refresh once daily, podcast-only otherwise)
+        run: |
+          HOUR=$(date -u +%H)
+          if [ "$HOUR" = "$FULL_REFRESH_HOUR_UTC" ]; then
+            echo "→ Daily full refresh (UTC hour=$HOUR)"
+            npm start
+          else
+            echo "→ Hourly podcast-only refresh (UTC hour=$HOUR)"
+            node index.js --podcast-only
+          fi
 
-      - name: Commit updated episode history
+      - name: Commit updated episode history (only if it changed)
         run: |
           if [ -n "$(git status --porcelain episode-history.json)" ]; then
             git config user.name  "github-actions[bot]"

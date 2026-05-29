@@ -203,7 +203,15 @@ async function fetchPodcastEpisodes(spotifyApi, podcasts, history) {
     const poolLimit = Math.max(need * 3, EPISODE_LOOKBACK);
     // Per-show opt-out of the 2-week freshness cutoff (e.g. for evergreen / interview podcasts)
     const allowOlder = podcast.allow_older === true;
-    console.log(`🎙️  Fetching up to ${poolLimit} candidate(s) from: ${podcast.name}${allowOlder ? "  [allow_older]" : ""}`);
+    // Ephemeral shows (rolling-URI news flashes like tagesschau in 100 Sekunden, NPR News
+    // Now) bypass the history filter AND don't get added to history. Their URIs change
+    // multiple times per day; tracking them would just churn the history cap.
+    const ephemeral = podcast.ephemeral === true;
+    const flagTags = [
+      allowOlder ? "allow_older" : null,
+      ephemeral ? "ephemeral" : null,
+    ].filter(Boolean).join(", ");
+    console.log(`🎙️  Fetching up to ${poolLimit} candidate(s) from: ${podcast.name}${flagTags ? `  [${flagTags}]` : ""}`);
 
     try {
       const data = await spotifyApi.getShowEpisodes(podcast.id, {
@@ -214,7 +222,7 @@ async function fetchPodcastEpisodes(spotifyApi, podcasts, history) {
       let picked = 0;
       for (const episode of data.body.items) {
         if (picked >= need) break;
-        if (seenUris.has(episode.uri)) {
+        if (!ephemeral && seenUris.has(episode.uri)) {
           console.log(`    ⏭️  Already played: ${episode.name}`);
           continue;
         }
@@ -234,6 +242,7 @@ async function fetchPodcastEpisodes(spotifyApi, podcasts, history) {
           show: podcast.name,
           type: "episode",
           position: podcast.position || null, // "first" = pinned to top of playlist
+          ephemeral,                              // flag carried so history-write step can skip it
         });
         console.log(`    📌 ${episode.name}`);
         picked++;
@@ -665,13 +674,15 @@ async function main() {
     saveState(newState);
     console.log("💾 State saved to state.json");
 
-    // Append the episode URIs we just placed to the rolling history so future
-    // runs won't re-pick the same episodes
-    if (episodes.length > 0) {
-      const updatedHistory = [...history, ...episodes.map((e) => e.uri)];
+    // Append the placed episode URIs to the rolling history so future runs won't
+    // re-pick the same episodes — EXCEPT for shows flagged `ephemeral: true`,
+    // whose URIs roll multiple times per day and would just churn the history cap.
+    const tracked = episodes.filter((e) => !e.ephemeral).map((e) => e.uri);
+    if (tracked.length > 0) {
+      const updatedHistory = [...history, ...tracked];
       saveHistory(updatedHistory);
       console.log(
-        `💾 Episode history updated (${Math.min(updatedHistory.length, HISTORY_LIMIT)} entries, cap ${HISTORY_LIMIT})`
+        `💾 Episode history updated (${Math.min(updatedHistory.length, HISTORY_LIMIT)} entries, cap ${HISTORY_LIMIT}; skipped ${episodes.length - tracked.length} ephemeral)`
       );
     }
   }

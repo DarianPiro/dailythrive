@@ -53,6 +53,7 @@ npm run taste          # generate genres block via Demeterics
 - **Episode history:** `loadHistory()` / `saveHistory()` track every URI ever placed (capped at `HISTORY_LIMIT = 1000`). `fetchPodcastEpisodes` filters candidates against this set so the same episode never appears twice across runs.
 - **Pinned podcasts:** entries with `position: first` are prepended to the playlist *before* the mix pattern runs.
 - **Podcast rotation order:** `arrangePodcasts()` (called before `fetchPodcastEpisodes`) keeps podcasts with `fixed: true` (or `position: first`) at their config-file slot, and shuffles every other podcast into the remaining slots. The mix pattern itself is unchanged — this only varies *which* podcast fills each P-slot from one run to the next.
+- **Ephemeral shows:** `ephemeral: true` is for rolling-URI shows (tagesschau in 100 Sekunden, NPR News Now). These bypass the history filter (always fetch the current URI) AND are excluded from the history write (so URI churn doesn't pollute the 1000-entry cap). Pair with the hourly podcast-only schedule to keep them current.
 - **Pattern + safety valve:** `mixContent` interleaves per `mix_pattern` (e.g. `PMMMM`). When one side runs out, the remaining items of the other side are appended in a block (`index.js:368-380`).
 
 ## The workflow (`.github/workflows/dailydrive.yml`)
