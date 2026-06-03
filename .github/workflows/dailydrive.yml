@@ -1,17 +1,13 @@
 name: Daily Thrive
 
-# One hourly cron drives both modes. The script does a full refresh at the
-# scheduled daily hour (UTC) and a podcast-only refresh every other hour, so
-# rolling-URI shows like tagesschau stay current without re-shuffling music.
+# Two distinct schedules so the mode is decided by GitHub at trigger time
+# (via github.event.schedule), not by the runner's wall clock — that way
+# Actions cron delays can't accidentally skip the daily full refresh.
 on:
   schedule:
-    - cron: "23 * * * *"   # every hour at :23 (off-the-hour to dodge GH Actions cron queue)
-  workflow_dispatch: {}     # manual trigger from the Actions tab
-
-# UTC hour at which to do the full rebuild. 06 UTC = 08:23 Berlin in summer (CEST),
-# 07:23 in winter (CET). Every other hourly run does podcast-only.
-env:
-  FULL_REFRESH_HOUR_UTC: "06"
+    - cron: "23 6 * * *"         # DAILY FULL REFRESH — 08:23 Berlin (CEST) / 07:23 (CET)
+    - cron: "23 0-5,7-23 * * *"  # HOURLY PODCAST-ONLY (every hour except 06 UTC)
+  workflow_dispatch: {}           # manual trigger → defaults to full refresh
 
 jobs:
   build-playlist:
@@ -46,15 +42,18 @@ jobs:
           printf '%s' "$SPOTIFY_CONFIG" > config.yaml
           printf '%s' "$SPOTIFY_TOKEN" > .spotify-token.json
 
-      - name: Build playlist (full refresh once daily, podcast-only otherwise)
+      # Mode is determined by which cron fired (not by wall-clock hour).
+      # Manual workflow_dispatch has no schedule → defaults to full refresh.
+      - name: Build playlist
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
         run: |
-          HOUR=$(date -u +%H)
-          if [ "$HOUR" = "$FULL_REFRESH_HOUR_UTC" ]; then
-            echo "→ Daily full refresh (UTC hour=$HOUR)"
-            npm start
-          else
-            echo "→ Hourly podcast-only refresh (UTC hour=$HOUR)"
+          if [ "$SCHEDULE" = "23 0-5,7-23 * * *" ]; then
+            echo "→ Hourly podcast-only refresh (schedule: $SCHEDULE)"
             node index.js --podcast-only
+          else
+            echo "→ Daily full refresh (schedule: ${SCHEDULE:-manual})"
+            npm start
           fi
 
       - name: Commit updated episode history (only if it changed)

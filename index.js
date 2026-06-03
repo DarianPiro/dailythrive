@@ -190,8 +190,14 @@ async function refreshTokenIfNeeded(spotifyApi, token) {
  * quickly on Spotify. If you see "[unavailable]" in your playlist, run the
  * script again to fetch the latest episode.
  */
-async function fetchPodcastEpisodes(spotifyApi, podcasts, history) {
-  const seenUris = new Set(history);
+async function fetchPodcastEpisodes(spotifyApi, podcasts, history, opts = {}) {
+  // In podcast-only (hourly) mode we BYPASS the history filter — the intent of
+  // the hourly refresh is "give me the current latest URI for every show right
+  // now", regardless of what was placed earlier today. Filtering here would
+  // empty the playlist because the daily refresh already wrote today's URIs
+  // into history.
+  const ignoreHistory = opts.ignoreHistory === true;
+  const seenUris = ignoreHistory ? new Set() : new Set(history);
   const episodes = [];
   const now = Date.now();
   const maxAgeMs = DEFAULT_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
@@ -592,7 +598,12 @@ async function main() {
   console.log(
     `🔀 Podcast order: ${fixedCount} fixed + ${arrangedPodcasts.length - fixedCount} shuffled`
   );
-  const episodes = await fetchPodcastEpisodes(spotifyApi, arrangedPodcasts, history);
+  const episodes = await fetchPodcastEpisodes(
+    spotifyApi,
+    arrangedPodcasts,
+    history,
+    { ignoreHistory: PODCAST_ONLY } // hourly runs always grab current URIs
+  );
 
   // Step 6: Check if episodes have changed since last run
   // This prevents unnecessary playlist updates that would reset your listening position
@@ -675,15 +686,21 @@ async function main() {
     console.log("💾 State saved to state.json");
 
     // Append the placed episode URIs to the rolling history so future runs won't
-    // re-pick the same episodes — EXCEPT for shows flagged `ephemeral: true`,
-    // whose URIs roll multiple times per day and would just churn the history cap.
-    const tracked = episodes.filter((e) => !e.ephemeral).map((e) => e.uri);
-    if (tracked.length > 0) {
-      const updatedHistory = [...history, ...tracked];
-      saveHistory(updatedHistory);
-      console.log(
-        `💾 Episode history updated (${Math.min(updatedHistory.length, HISTORY_LIMIT)} entries, cap ${HISTORY_LIMIT}; skipped ${episodes.length - tracked.length} ephemeral)`
-      );
+    // re-pick the same episodes. We only write history on FULL daily refreshes:
+    //   - PODCAST_ONLY (hourly) runs would just re-add today's URIs repeatedly,
+    //     churning the cap and (worse) marking still-fresh episodes as "played".
+    //   - Ephemeral shows are excluded either way (rolling URIs would pollute).
+    if (!PODCAST_ONLY) {
+      const tracked = episodes.filter((e) => !e.ephemeral).map((e) => e.uri);
+      if (tracked.length > 0) {
+        const updatedHistory = [...history, ...tracked];
+        saveHistory(updatedHistory);
+        console.log(
+          `💾 Episode history updated (${Math.min(updatedHistory.length, HISTORY_LIMIT)} entries, cap ${HISTORY_LIMIT}; skipped ${episodes.length - tracked.length} ephemeral)`
+        );
+      }
+    } else {
+      console.log("ℹ️  Skipping history write (podcast-only mode)");
     }
   }
 }
