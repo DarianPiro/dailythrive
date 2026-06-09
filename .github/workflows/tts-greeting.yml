@@ -1,0 +1,78 @@
+name: TTS Greeting
+
+# Generates a daily 10-second greeting clip and publishes it via the RSS feed
+# at /feed.xml (served by GitHub Pages → ingested by Spotify for Creators).
+# Runs well before the playlist workflow so Spotify has time to ingest the new
+# episode before the morning rebuild.
+on:
+  schedule:
+    - cron: "37 3 * * *"   # 03:37 UTC daily — ~3h ahead of the 06:23 UTC playlist rebuild
+  workflow_dispatch: {}
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write    # to commit audio/ and feed.xml back to main
+    env:
+      GITHUB_PAGES_URL: https://darianpiro.github.io/dailythrive
+      PIPER_BIN: ./piper/piper
+      PIPER_VOICE_PATH: ./voices/en_US-amy-medium.onnx
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # Piper binary — cached so we only download it once per runner image
+      - name: Cache Piper binary
+        id: cache-piper
+        uses: actions/cache@v4
+        with:
+          path: piper
+          key: piper-2023.11.14-2-linux-x86_64
+
+      - name: Download Piper binary
+        if: steps.cache-piper.outputs.cache-hit != 'true'
+        run: |
+          curl -L -o piper.tar.gz \
+            https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz
+          tar -xzf piper.tar.gz
+          rm piper.tar.gz
+          chmod +x piper/piper
+
+      # Voice model (~45 MB) — cached
+      - name: Cache voice model
+        id: cache-voice
+        uses: actions/cache@v4
+        with:
+          path: voices
+          key: piper-voice-en_US-amy-medium-v1
+
+      - name: Download voice model
+        if: steps.cache-voice.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p voices
+          curl -L -o voices/en_US-amy-medium.onnx \
+            https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx
+          curl -L -o voices/en_US-amy-medium.onnx.json \
+            https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx.json
+
+      - name: Generate greeting
+        run: node scripts/generate-greeting.js
+
+      - name: Commit audio + feed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audio feed.xml
+          if git diff --staged --quiet; then
+            echo "Nothing changed."
+          else
+            git commit -m "chore: daily TTS greeting [skip ci]"
+            git push
+          fi

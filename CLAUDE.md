@@ -54,6 +54,16 @@ npm run taste          # generate genres block via Demeterics
 - **Pinned podcasts:** entries with `position: first` are prepended to the playlist *before* the mix pattern runs.
 - **Podcast rotation order:** `arrangePodcasts()` (called before `fetchPodcastEpisodes`) keeps podcasts with `fixed: true` (or `position: first`) at their config-file slot, and shuffles every other podcast into the remaining slots. The mix pattern itself is unchanged — this only varies *which* podcast fills each P-slot from one run to the next.
 - **Ephemeral shows:** `ephemeral: true` is for rolling-URI shows (tagesschau in 100 Sekunden, NPR News Now). These bypass the history filter (always fetch the current URI) AND are excluded from the history write (so URI churn doesn't pollute the 1000-entry cap). Pair with the hourly podcast-only schedule to keep them current.
+
+## TTS greeting pipeline (optional add-on)
+
+A separate workflow `.github/workflows/tts-greeting.yml` generates a daily 10-second greeting (date + Berlin weather + affirmation), renders it with **Piper** (local neural TTS, voice `en_US-amy-medium`), and publishes it via an RSS feed at `feed.xml` (served by GitHub Pages). Spotify ingests the feed via Spotify for Creators and the new episode becomes available as a normal Spotify show.
+
+- `scripts/generate-greeting.js` builds the greeting from slot-based templates (4 salutations × 5 date intros × 5 weather lines × 5 setups × 40 affirmations = ~15,000 unique combinations).
+- Weather comes from Open-Meteo (free, no key).
+- `audio/YYYY-MM-DD.mp3` files are committed back; pruned after 30 days.
+- `feed.xml` regenerated each run from the most-recent 14 audio files.
+- The greeting podcast is referenced in `config.yaml` with `position: first`, `ephemeral: true` so the hourly podcast-only refresh always grabs the latest episode URI.
 - **Pattern + safety valve:** `mixContent` interleaves per `mix_pattern` (e.g. `PMMMM`). When one side runs out, the remaining items of the other side are appended in a block (`index.js:368-380`).
 
 ## The workflow (`.github/workflows/dailydrive.yml`)

@@ -46,6 +46,11 @@ state.json
 *.state
 cursors.json
 
+# --- TTS greeting pipeline build artifacts (cached in CI, never committed) ---
+piper/
+voices/
+*.wav
+
 # --- Node.js ---
 node_modules/
 npm-debug.log*
