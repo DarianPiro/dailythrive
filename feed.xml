@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>Daily Thrive Greeting</title>
+    <link>https://darianpiro.github.io/dailythrive/</link>
+    <description>Personal daily greeting for the Daily Thrive playlist.</description>
+    <language>en-us</language>
+    <itunes:author>Daniel Piro</itunes:author>
+    <itunes:explicit>false</itunes:explicit>
+    <itunes:owner>
+      <itunes:name>Daniel Piro</itunes:name>
+      <itunes:email>noreply@example.com</itunes:email>
+    </itunes:owner>
+    <itunes:category text="Health &amp; Fitness"/>
+    <itunes:type>episodic</itunes:type>
+    <item>
+      <title>Wednesday, June 10th, 2026</title>
+      <description>Personal daily greeting for the Daily Thrive playlist. Wednesday, June 10th, 2026</description>
+      <pubDate>Wed, 10 Jun 2026 06:00:00 GMT</pubDate>
+      <enclosure url="https://darianpiro.github.io/dailythrive/audio/2026-06-10.mp3" length="97428" type="audio/mpeg"/>
+      <guid isPermaLink="false">daily-thrive-2026-06-10</guid>
+      <itunes:duration>30</itunes:duration>
+    </item>
+  </channel>
+</rss>
