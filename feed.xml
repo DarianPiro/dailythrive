@@ -14,6 +14,14 @@
     <itunes:category text="Health &amp; Fitness"/>
     <itunes:type>episodic</itunes:type>
     <item>
+      <title>Monday, June 15th, 2026</title>
+      <description>Personal daily greeting for the Daily Thrive playlist. Monday, June 15th, 2026</description>
+      <pubDate>Mon, 15 Jun 2026 06:00:00 GMT</pubDate>
+      <enclosure url="https://darianpiro.github.io/dailythrive/audio/2026-06-15.mp3" length="102092" type="audio/mpeg"/>
+      <guid isPermaLink="false">daily-thrive-2026-06-15</guid>
+      <itunes:duration>30</itunes:duration>
+    </item>
+    <item>
       <title>Sunday, June 14th, 2026</title>
       <description>Personal daily greeting for the Daily Thrive playlist. Sunday, June 14th, 2026</description>
       <pubDate>Sun, 14 Jun 2026 06:00:00 GMT</pubDate>
