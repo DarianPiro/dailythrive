@@ -43,7 +43,7 @@ const CONFIG = {
 
   // RSS channel-level metadata (shown in Spotify for Creators)
   authorName: "Daniel Piro",
-  authorEmail: "noreply@example.com",
+  authorEmail: "hello@darianpiro.xyz",
   showTitle: "Daily Thrive Greeting",
   showDescription: "Personal daily greeting for the Daily Thrive playlist.",
   coverImage: "cover.jpg",
