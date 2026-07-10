@@ -46,6 +46,7 @@ const CONFIG = {
   authorEmail: "noreply@example.com",
   showTitle: "Daily Thrive Greeting",
   showDescription: "Personal daily greeting for the Daily Thrive playlist.",
+  coverImage: "cover.jpg",
 };
 
 // =============================================================================
@@ -202,6 +203,12 @@ function regenerateFeed() {
     </itunes:owner>
     <itunes:category text="Health &amp; Fitness"/>
     <itunes:type>episodic</itunes:type>
+    <itunes:image href="${CONFIG.baseUrl}/${CONFIG.coverImage}"/>
+    <image>
+      <url>${CONFIG.baseUrl}/${CONFIG.coverImage}</url>
+      <title>${escapeXml(CONFIG.showTitle)}</title>
+      <link>${CONFIG.baseUrl}/</link>
+    </image>
 ${items}
   </channel>
 </rss>

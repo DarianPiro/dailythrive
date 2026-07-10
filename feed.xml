@@ -13,6 +13,12 @@
     </itunes:owner>
     <itunes:category text="Health &amp; Fitness"/>
     <itunes:type>episodic</itunes:type>
+    <itunes:image href="https://darianpiro.github.io/dailythrive/cover.jpg"/>
+    <image>
+      <url>https://darianpiro.github.io/dailythrive/cover.jpg</url>
+      <title>Daily Thrive Greeting</title>
+      <link>https://darianpiro.github.io/dailythrive/</link>
+    </image>
     <item>
       <title>Friday, July 10th, 2026</title>
       <description>Personal daily greeting for the Daily Thrive playlist. Friday, July 10th, 2026</description>
