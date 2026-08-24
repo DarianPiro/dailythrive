@@ -20,6 +20,14 @@
       <link>https://darianpiro.github.io/dailythrive/</link>
     </image>
     <item>
+      <title>Monday, August 24th, 2026</title>
+      <description>Personal daily greeting for the Daily Thrive playlist. Monday, August 24th, 2026</description>
+      <pubDate>Mon, 24 Aug 2026 06:00:00 GMT</pubDate>
+      <enclosure url="https://darianpiro.github.io/dailythrive/audio/2026-08-24.mp3" length="111154" type="audio/mpeg"/>
+      <guid isPermaLink="false">daily-thrive-2026-08-24</guid>
+      <itunes:duration>30</itunes:duration>
+    </item>
+    <item>
       <title>Sunday, August 23rd, 2026</title>
       <description>Personal daily greeting for the Daily Thrive playlist. Sunday, August 23rd, 2026</description>
       <pubDate>Sun, 23 Aug 2026 06:00:00 GMT</pubDate>
@@ -121,14 +129,6 @@
       <pubDate>Tue, 11 Aug 2026 06:00:00 GMT</pubDate>
       <enclosure url="https://darianpiro.github.io/dailythrive/audio/2026-08-11.mp3" length="107749" type="audio/mpeg"/>
       <guid isPermaLink="false">daily-thrive-2026-08-11</guid>
-      <itunes:duration>30</itunes:duration>
-    </item>
-    <item>
-      <title>Monday, August 10th, 2026</title>
-      <description>Personal daily greeting for the Daily Thrive playlist. Monday, August 10th, 2026</description>
-      <pubDate>Mon, 10 Aug 2026 06:00:00 GMT</pubDate>
-      <enclosure url="https://darianpiro.github.io/dailythrive/audio/2026-08-10.mp3" length="107717" type="audio/mpeg"/>
-      <guid isPermaLink="false">daily-thrive-2026-08-10</guid>
       <itunes:duration>30</itunes:duration>
     </item>
   </channel>
